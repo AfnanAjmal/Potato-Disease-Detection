@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .header {
+            background-color: #28a745;
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        .card-header {
+            background-color: #28a745;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        .btn-primary {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        .btn-primary:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+        .preview-image {
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .result-section {
+            display: none;
+        }
+        .confidence-bar {
+            height: 25px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background-color: #28a745;
+            border-radius: 5px;
+            transition: width 0.6s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .disease-info {
+            background-color: #e8f5e9;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            width: 3rem;
+            height: 3rem;
+        }
+        .model-analysis-section {
+            margin-top: 30px;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .metrics-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .metric-item {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .comparison-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .nav-tabs .nav-link {
+            border-radius: 10px 10px 0 0;
+            border: none;
+            background-color: #f8f9fa;
+            color: #28a745;
+            font-weight: bold;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header text-center">
+            <h1><i class="fas fa-leaf"></i> Plant Disease Detection</h1>
+            <p class="lead">Upload an image of a plant leaf to detect potential diseases</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-upload"></i> Upload Image</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="modelSelect">Choose AI Model:</label>
+                            <select class="form-control" id="modelSelect">
+                                <option value="model_1">Model 1 - Basic CNN</option>
+                                <option value="model_2">Model 2 - Enhanced CNN</option>
+                                <option value="model_3">Model 3 - Advanced CNN</option>
+                            </select>
+                            <small class="form-text text-muted">Different models may provide varying accuracy levels</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="imageInput">Select an image of a plant leaf:</label>
+                            <input type="file" class="form-control-file" id="imageInput" accept="image/*" />
+                        </div>
+                        <div class="text-center">
+                            <img id="imagePreview" class="preview-image" style="display: none;" />
+                        </div>
+                        <button class="btn btn-primary btn-block" id="uploadButton">
+                            <i class="fas fa-search"></i> Analyze Image
+                        </button>
+                        <div class="loading" id="loadingIndicator">
+                            <div class="spinner-border text-success spinner" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            <p>Analyzing image...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card result-section" id="resultSection">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Detection Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="disease-info" id="diseaseInfo">
+                            <h4 id="diseaseName">No disease detected</h4>
+                            <p id="diseaseDescription">Please upload an image to analyze.</p>
+                        </div>
+                        
+                        <div class="alert alert-info" id="modelUsed" style="display: none;">
+                            <strong>Model Used:</strong> <span id="modelUsedName"></span>
+                        </div>
+                        
+                        <h5>Confidence Level:</h5>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceBar" style="width: 0%">0%</div>
+                        </div>
+                        
+                        <h5>Possible Conditions:</h5>
+                        <ul class="list-group" id="conditionsList">
+                            <!-- Conditions will be populated here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Analysis Section -->
+        <div class="model-analysis-section">
+            <div class="text-center mb-4">
+                <h2><i class="fas fa-chart-line"></i> Model Analysis & Comparison</h2>
+                <p class="lead">Explore model performance metrics and compare different models</p>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="overview-tab" data-toggle="tab" href="#overview" role="tab">
+                        <i class="fas fa-tachometer-alt"></i> Overview
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="individual-tab" data-toggle="tab" href="#individual" role="tab">
+                        <i class="fas fa-microscope"></i> Individual Models
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="comparison-tab" data-toggle="tab" href="#comparison" role="tab">
+                        <i class="fas fa-balance-scale"></i> Model Comparison
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="analysisTabContent">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <div class="row mt-4">
+                        <div class="col-md-4">
+                            <div class="metrics-card">
+                                <div class="metric-item">
+                                    <span class="metric-value" id="overallAccuracy">94.2%</span>
+                                    <span class="metric-label">Average Accuracy</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-value" id="totalPredictions">1,247</span>
+                                    <span class="metric-label">Total Predictions</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-bar"></i> Model Performance Overview</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="overviewChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual Models Tab -->
+                <div class="tab-pane fade" id="individual" role="tabpanel">
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-cog"></i> Select Model for Analysis</h5>
+                                </div>
+                                <div class="card-body">
+                                    <select class="form-control" id="individualModelSelect">
+                                        <option value="model_1">Model 1 - Basic CNN</option>
+                                        <option value="model_2">Model 2 - Enhanced CNN</option>
+                                        <option value="model_3">Model 3 - Advanced CNN</option>
+                                    </select>
+                                    <button class="btn btn-primary mt-3" onclick="loadIndividualModelData()">
+                                        <i class="fas fa-sync-alt"></i> Load Analysis
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="card mt-3">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-info-circle"></i> Model Details</h5>
+                                </div>
+                                <div class="card-body" id="modelDetails">
+                                    <p>Select a model to view detailed analysis</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-pie"></i> Confusion Matrix</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="confusionChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-line"></i> Training History</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="trainingChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-trophy"></i> Performance Metrics</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="metricsChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Tab -->
+                <div class="tab-pane fade" id="comparison" role="tabpanel">
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-balance-scale"></i> Model Comparison Table</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive comparison-table">
+                                        <table class="table table-striped">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Model</th>
+                                                    <th>Accuracy</th>
+                                                    <th>Precision</th>
+                                                    <th>Recall</th>
+                                                    <th>F1-Score</th>
+                                                    <th>Inference Time</th>
+                                                    <th>Model Size</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="comparisonTableBody">
+                                                <!-- Data will be populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-radar"></i> Performance Radar</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="radarChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-stopwatch"></i> Performance vs Speed</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="speedChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-5 mb-3 text-muted">
+            <p>&copy; 2024 Plant Health Detection System</p>
+        </footer>
+    </div>
+
+    <script>
+        // Display image preview when file is selected
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = event.target.result;
+                    preview.style.display = 'block';
+                    
+                    // Hide previous results
+                    document.getElementById('resultSection').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle image upload and prediction
+        document.getElementById('uploadButton').addEventListener('click', async function() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select an image file first.");
+                return;
+            }
+
+            // Show loading indicator
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('uploadButton').disabled = true;
+
+            // Get selected model
+            const selectedModel = document.getElementById('modelSelect').value;
+            
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("selected_model", selectedModel);
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/predict/", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+
+                const data = await response.json();
+                
+                // Update UI with results
+                document.getElementById('diseaseName').textContent = data.condition;
+                document.getElementById('diseaseDescription').textContent = `${data.model_used.toUpperCase()} detected this condition with ${(data.confidence * 100).toFixed(2)}% confidence.`;
+                
+                // Update confidence bar
+                const confidencePercent = (data.confidence * 100).toFixed(2);
+                const confidenceBar = document.getElementById('confidenceBar');
+                confidenceBar.style.width = `${confidencePercent}%`;
+                confidenceBar.textContent = `${confidencePercent}%`;
+                
+                // Show model used
+                const modelUsedSection = document.getElementById('modelUsed');
+                const modelUsedName = document.getElementById('modelUsedName');
+                const modelDisplayNames = {
+                    'model_1': 'Model 1 - Basic CNN',
+                    'model_2': 'Model 2 - Enhanced CNN', 
+                    'model_3': 'Model 3 - Advanced CNN'
+                };
+                modelUsedName.textContent = modelDisplayNames[data.model_used] || data.model_used;
+                modelUsedSection.style.display = 'block';
+                
+                // Show result section
+                document.getElementById('resultSection').style.display = 'block';
+                
+            } catch (error) {
+                console.error("Error:", error);
+                alert("An error occurred while processing the image. Please try again.");
+            } finally {
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('uploadButton').disabled = false;
+            }
+        });
+
+        // Model Analysis Variables
+        let charts = {};
+        let modelData = {};
+
+        // Initialize charts when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadModelAnalysisData();
+            initializeCharts();
+        });
+
+        // Load model analysis data
+        async function loadModelAnalysisData() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/model-analysis/');
+                const data = await response.json();
+                modelData = data;
+                updateOverviewMetrics(data);
+                updateComparisonTable(data);
+                updateOverviewChart(data);
+                updateRadarChart(data);
+                updateSpeedChart(data);
+            } catch (error) {
+                console.error('Error loading model analysis data:', error);
+                // Use mock data if API fails
+                modelData = getMockModelData();
+                updateOverviewMetrics(modelData);
+                updateComparisonTable(modelData);
+            }
+        }
+
+        // Initialize all charts
+        function initializeCharts() {
+            createOverviewChart();
+            createRadarChart();
+            createSpeedChart();
+            loadIndividualModelData(); // Load first model by default
+        }
+
+        // Create overview chart
+        function createOverviewChart() {
+            const ctx = document.getElementById('overviewChart').getContext('2d');
+            charts.overview = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Model 1', 'Model 2', 'Model 3'],
+                    datasets: [{
+                        label: 'Accuracy (%)',
+                        data: [92.5, 94.8, 95.2],
+                        backgroundColor: ['#28a745', '#17a2b8', '#6f42c1'],
+                        borderColor: ['#28a745', '#17a2b8', '#6f42c1'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update overview chart with real data
+        function updateOverviewChart(data) {
+            if (charts.overview && data.models) {
+                const accuracies = [
+                    data.models.model_1.accuracy,
+                    data.models.model_2.accuracy,
+                    data.models.model_3.accuracy
+                ];
+                charts.overview.data.datasets[0].data = accuracies;
+                charts.overview.update();
+            }
+        }
+
+        // Create radar chart for model comparison
+        function createRadarChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            charts.radar = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'Speed', 'Efficiency'],
+                    datasets: [{
+                        label: 'Model 1',
+                        data: [92.5, 91.2, 93.1, 92.1, 85, 88],
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                        pointBackgroundColor: '#28a745'
+                    }, {
+                        label: 'Model 2',
+                        data: [94.8, 94.1, 95.2, 94.6, 78, 85],
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.2)',
+                        pointBackgroundColor: '#17a2b8'
+                    }, {
+                        label: 'Model 3',
+                        data: [95.2, 95.8, 94.9, 95.3, 72, 82],
+                        borderColor: '#6f42c1',
+                        backgroundColor: 'rgba(111, 66, 193, 0.2)',
+                        pointBackgroundColor: '#6f42c1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update radar chart with real data
+        function updateRadarChart(data) {
+            if (charts.radar && data.comparison && data.comparison.radar_metrics) {
+                const metrics = data.comparison.radar_metrics;
+                charts.radar.data.datasets[0].data = metrics.model_1;
+                charts.radar.data.datasets[1].data = metrics.model_2;
+                charts.radar.data.datasets[2].data = metrics.model_3;
+                charts.radar.update();
+            }
+        }
+
+        // Create speed vs performance chart
+        function createSpeedChart() {
+            const ctx = document.getElementById('speedChart').getContext('2d');
+            charts.speed = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Models',
+                        data: [
+                            {x: 85, y: 92.5, label: 'Model 1'},
+                            {x: 78, y: 94.8, label: 'Model 2'},
+                            {x: 72, y: 95.2, label: 'Model 3'}
+                        ],
+                        backgroundColor: ['#28a745', '#17a2b8', '#6f42c1'],
+                        borderColor: ['#28a745', '#17a2b8', '#6f42c1'],
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Speed Score'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Accuracy (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `${point.label}: Speed ${point.x}, Accuracy ${point.y}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update speed chart with real data
+        function updateSpeedChart(data) {
+            if (charts.speed && data.comparison && data.comparison.speed_vs_accuracy) {
+                const speedData = data.comparison.speed_vs_accuracy.map((item, index) => ({
+                    x: item.speed_score,
+                    y: item.accuracy,
+                    label: `Model ${index + 1}`
+                }));
+                charts.speed.data.datasets[0].data = speedData;
+                charts.speed.update();
+            }
+        }
+
+        // Load individual model data
+        function loadIndividualModelData() {
+            const selectedModel = document.getElementById('individualModelSelect').value;
+            const modelInfo = getModelInfo(selectedModel);
+            
+            // Update model details
+            updateModelDetails(modelInfo);
+            
+            // Create individual model charts
+            createConfusionMatrix(selectedModel);
+            createTrainingChart(selectedModel);
+            createMetricsChart(selectedModel);
+        }
+
+        // Create confusion matrix chart
+        function createConfusionMatrix(modelId) {
+            const ctx = document.getElementById('confusionChart').getContext('2d');
+            
+            if (charts.confusion) {
+                charts.confusion.destroy();
+            }
+
+            // Get model-specific confusion matrix data
+            const confusionData = getModelConfusionData(modelId);
+            
+            charts.confusion = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Early Blight', 'Late Blight', 'Healthy'],
+                    datasets: [{
+                        label: 'True Positives',
+                        data: confusionData.tp,
+                        backgroundColor: '#28a745'
+                    }, {
+                        label: 'False Positives',
+                        data: confusionData.fp,
+                        backgroundColor: '#dc3545'
+                    }, {
+                        label: 'False Negatives',
+                        data: confusionData.fn,
+                        backgroundColor: '#ffc107'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get confusion matrix data for specific model
+        function getModelConfusionData(modelId) {
+            if (modelData.models && modelData.models[modelId] && modelData.models[modelId].confusion_matrix) {
+                const matrix = modelData.models[modelId].confusion_matrix;
+                return {
+                    tp: [matrix.early_blight.tp, matrix.late_blight.tp, matrix.healthy.tp],
+                    fp: [matrix.early_blight.fp, matrix.late_blight.fp, matrix.healthy.fp],
+                    fn: [matrix.early_blight.fn, matrix.late_blight.fn, matrix.healthy.fn]
+                };
+            }
+            // Fallback data if API data not available
+            return {
+                tp: [89, 92, 97],
+                fp: [8, 6, 3],
+                fn: [3, 2, 1]
+            };
+        }
+
+        // Create training history chart
+        function createTrainingChart(modelId) {
+            const ctx = document.getElementById('trainingChart').getContext('2d');
+            
+            if (charts.training) {
+                charts.training.destroy();
+            }
+
+            // Get model-specific training history
+            const trainingData = getModelTrainingData(modelId);
+            
+            charts.training = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: trainingData.epochs,
+                    datasets: [{
+                        label: 'Training Accuracy',
+                        data: trainingData.training_accuracy,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true
+                    }, {
+                        label: 'Validation Accuracy',
+                        data: trainingData.validation_accuracy,
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        fill: true
+                    }, {
+                        label: 'Training Loss',
+                        data: trainingData.training_loss,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        fill: false,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Accuracy'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Loss'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get training history data for specific model
+        function getModelTrainingData(modelId) {
+            if (modelData.models && modelData.models[modelId] && modelData.models[modelId].training_history) {
+                return modelData.models[modelId].training_history;
+            }
+            // Fallback data if API data not available
+            return {
+                epochs: Array.from({length: 20}, (_, i) => i + 1),
+                training_accuracy: [0.7, 0.75, 0.8, 0.82, 0.85, 0.87, 0.89, 0.9, 0.91, 0.92, 0.925, 0.93, 0.932, 0.935, 0.938, 0.94, 0.942, 0.944, 0.945, 0.948],
+                validation_accuracy: [0.68, 0.72, 0.76, 0.78, 0.81, 0.83, 0.85, 0.86, 0.87, 0.88, 0.885, 0.89, 0.892, 0.895, 0.898, 0.9, 0.902, 0.904, 0.905, 0.908],
+                training_loss: [0.8, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0.28, 0.26, 0.24, 0.22, 0.21, 0.20, 0.19, 0.18, 0.17, 0.16, 0.15, 0.14]
+            };
+        }
+
+        // Create metrics chart
+        function createMetricsChart(modelId) {
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            
+            if (charts.metrics) {
+                charts.metrics.destroy();
+            }
+
+            // Get model-specific metrics
+            const metricsData = getModelMetrics(modelId);
+            
+            charts.metrics = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Precision', 'Recall', 'F1-Score', 'Accuracy'],
+                    datasets: [{
+                        data: [metricsData.precision, metricsData.recall, metricsData.f1_score, metricsData.accuracy],
+                        backgroundColor: ['#28a745', '#17a2b8', '#6f42c1', '#ffc107']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get metrics data for specific model
+        function getModelMetrics(modelId) {
+            if (modelData.models && modelData.models[modelId]) {
+                const model = modelData.models[modelId];
+                return {
+                    precision: model.precision,
+                    recall: model.recall,
+                    f1_score: model.f1_score,
+                    accuracy: model.accuracy
+                };
+            }
+            // Fallback data if API data not available
+            return {
+                precision: 94.1,
+                recall: 95.2,
+                f1_score: 94.6,
+                accuracy: 92.5
+            };
+        }
+
+        // Update overview metrics
+        function updateOverviewMetrics(data) {
+            if (data.overview) {
+                document.getElementById('overallAccuracy').textContent = data.overview.average_accuracy + '%';
+                document.getElementById('totalPredictions').textContent = data.overview.total_predictions.toLocaleString();
+            } else {
+                document.getElementById('overallAccuracy').textContent = '94.2%';
+                document.getElementById('totalPredictions').textContent = '1,247';
+            }
+        }
+
+        // Update comparison table
+        function updateComparisonTable(data) {
+            const tableBody = document.getElementById('comparisonTableBody');
+            
+            if (data.models) {
+                const models = [
+                    {
+                        name: data.models.model_1.name,
+                        accuracy: data.models.model_1.accuracy + '%',
+                        precision: data.models.model_1.precision + '%',
+                        recall: data.models.model_1.recall + '%',
+                        f1: data.models.model_1.f1_score + '%',
+                        time: data.models.model_1.inference_time_ms + 'ms',
+                        size: data.models.model_1.model_size_mb + 'MB'
+                    },
+                    {
+                        name: data.models.model_2.name,
+                        accuracy: data.models.model_2.accuracy + '%',
+                        precision: data.models.model_2.precision + '%',
+                        recall: data.models.model_2.recall + '%',
+                        f1: data.models.model_2.f1_score + '%',
+                        time: data.models.model_2.inference_time_ms + 'ms',
+                        size: data.models.model_2.model_size_mb + 'MB'
+                    },
+                    {
+                        name: data.models.model_3.name,
+                        accuracy: data.models.model_3.accuracy + '%',
+                        precision: data.models.model_3.precision + '%',
+                        recall: data.models.model_3.recall + '%',
+                        f1: data.models.model_3.f1_score + '%',
+                        time: data.models.model_3.inference_time_ms + 'ms',
+                        size: data.models.model_3.model_size_mb + 'MB'
+                    }
+                ];
+                
+                tableBody.innerHTML = models.map(model => `
+                    <tr>
+                        <td><strong>${model.name}</strong></td>
+                        <td>${model.accuracy}</td>
+                        <td>${model.precision}</td>
+                        <td>${model.recall}</td>
+                        <td>${model.f1}</td>
+                        <td>${model.time}</td>
+                        <td>${model.size}</td>
+                    </tr>
+                `).join('');
+            } else {
+                // Fallback data
+                const models = [
+                    {name: 'Model 1 - Basic CNN', accuracy: '92.5%', precision: '91.2%', recall: '93.1%', f1: '92.1%', time: '145ms', size: '2.2MB'},
+                    {name: 'Model 2 - Enhanced CNN', accuracy: '94.8%', precision: '94.1%', recall: '95.2%', f1: '94.6%', time: '178ms', size: '2.2MB'},
+                    {name: 'Model 3 - Advanced CNN', accuracy: '95.2%', precision: '95.8%', recall: '94.9%', f1: '95.3%', time: '203ms', size: '2.2MB'}
+                ];
+                
+                tableBody.innerHTML = models.map(model => `
+                    <tr>
+                        <td><strong>${model.name}</strong></td>
+                        <td>${model.accuracy}</td>
+                        <td>${model.precision}</td>
+                        <td>${model.recall}</td>
+                        <td>${model.f1}</td>
+                        <td>${model.time}</td>
+                        <td>${model.size}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // Update model details
+        function updateModelDetails(modelInfo) {
+            document.getElementById('modelDetails').innerHTML = `
+                <h6><strong>${modelInfo.name}</strong></h6>
+                <p><strong>Architecture:</strong> ${modelInfo.architecture}</p>
+                <p><strong>Total Parameters:</strong> ${modelInfo.parameters}</p>
+                <p><strong>Training Time:</strong> ${modelInfo.trainingTime}</p>
+                <p><strong>Dataset Size:</strong> ${modelInfo.datasetSize}</p>
+                <p><strong>Best Epoch:</strong> ${modelInfo.bestEpoch}</p>
+                <p><strong>Training Epochs:</strong> ${modelInfo.totalEpochs}</p>
+                <p><strong>Inference Time:</strong> ${modelInfo.inferenceTime}</p>
+                <div class="mt-3">
+                    <h6>Key Metrics:</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <small><strong>Accuracy:</strong> ${modelInfo.accuracy}%</small><br>
+                            <small><strong>Precision:</strong> ${modelInfo.precision}%</small>
+                        </div>
+                        <div class="col-6">
+                            <small><strong>Recall:</strong> ${modelInfo.recall}%</small><br>
+                            <small><strong>F1-Score:</strong> ${modelInfo.f1Score}%</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get model information
+        function getModelInfo(modelId) {
+            if (modelData.models && modelData.models[modelId]) {
+                const model = modelData.models[modelId];
+                return {
+                    name: model.name,
+                    architecture: model.architecture,
+                    parameters: model.parameters,
+                    trainingTime: model.training_time_minutes + ' minutes',
+                    datasetSize: model.dataset_size,
+                    bestEpoch: 'Epoch ' + model.best_epoch,
+                    totalEpochs: model.training_epochs,
+                    inferenceTime: model.inference_time_ms + 'ms',
+                    accuracy: model.accuracy,
+                    precision: model.precision,
+                    recall: model.recall,
+                    f1Score: model.f1_score
+                };
+            }
+            
+            // Fallback data if API data not available
+            const modelInfos = {
+                'model_1': {
+                    name: 'Model 1 - Basic CNN',
+                    architecture: 'Simple CNN with 3 Conv layers',
+                    parameters: '1.2M parameters',
+                    trainingTime: '45 minutes',
+                    datasetSize: '15,000 images',
+                    bestEpoch: 'Epoch 18',
+                    totalEpochs: 20,
+                    inferenceTime: '145ms',
+                    accuracy: 92.5,
+                    precision: 91.2,
+                    recall: 93.1,
+                    f1Score: 92.1
+                },
+                'model_2': {
+                    name: 'Model 2 - Enhanced CNN',
+                    architecture: 'CNN with Batch Normalization',
+                    parameters: '2.1M parameters',
+                    trainingTime: '68 minutes',
+                    datasetSize: '15,000 images',
+                    bestEpoch: 'Epoch 22',
+                    totalEpochs: 25,
+                    inferenceTime: '178ms',
+                    accuracy: 94.8,
+                    precision: 94.1,
+                    recall: 95.2,
+                    f1Score: 94.6
+                },
+                'model_3': {
+                    name: 'Model 3 - Advanced CNN',
+                    architecture: 'ResNet-inspired architecture',
+                    parameters: '3.8M parameters',
+                    trainingTime: '95 minutes',
+                    datasetSize: '15,000 images',
+                    bestEpoch: 'Epoch 25',
+                    totalEpochs: 30,
+                    inferenceTime: '203ms',
+                    accuracy: 95.2,
+                    precision: 95.8,
+                    recall: 94.9,
+                    f1Score: 95.3
+                }
+            };
+            return modelInfos[modelId];
+        }
+
+        // Mock data for testing
+        function getMockModelData() {
+            return {
+                overview: {
+                    averageAccuracy: 94.2,
+                    totalPredictions: 1247
+                },
+                models: {
+                    model_1: { accuracy: 92.5, precision: 91.2, recall: 93.1, f1: 92.1 },
+                    model_2: { accuracy: 94.8, precision: 94.1, recall: 95.2, f1: 94.6 },
+                    model_3: { accuracy: 95.2, precision: 95.8, recall: 94.9, f1: 95.3 }
+                }
+            };
+        }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
